@@ -15,8 +15,11 @@ const read = file => fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
 const args = process.argv.slice(2);
 const sourceIndex = args.indexOf('--source');
 const source = sourceIndex >= 0 ? args[sourceIndex + 1] : '';
-const allowed = sourceIndex >= 0 ? ['--confirm-usage', '--source', source] : ['--confirm-usage'];
-const usage = '用法：node scripts/team-setup.mjs --confirm-usage [--source <公司 Git 地址>]';
+const confirmUsage = args.includes('--confirm-usage');
+const confirmWorkMemory = args.includes('--confirm-work-memory');
+const allowed = ['--confirm-work-memory', '--confirm-usage'];
+if (sourceIndex >= 0) allowed.push('--source', source);
+const usage = '用法：node scripts/team-setup.mjs --confirm-work-memory 和/或 --confirm-usage [--source <公司 Git 地址>]';
 
 function atomicWrite(file, value) {
   const temporary = file + '.' + randomUUID() + '.tmp';
@@ -92,21 +95,27 @@ function setEnabled(text,id,value) {
 }
 
 async function main() {
-  if (!args.includes('--confirm-usage') || args.some(a=>!allowed.includes(a)) || (sourceIndex>=0 && !source))
-    throw Error(usage+'。首次执行前须已告知员工统计范围并取得明确同意。');
+  if ((!confirmUsage && !confirmWorkMemory) || args.some(a=>!allowed.includes(a)) || (sourceIndex>=0 && !source))
+    throw Error(usage+'。须取得员工对所选功能的明确同意。');
   if (source && !/^(https?:\/\/|ssh:\/\/|[^\s/@]+@[^\s/:]+:)/.test(source))
     throw Error('--source 只接受公司 Git URL。已有本地源请先在 Codex 登记，再省略 --source。');
   if (Number(process.versions.node.split('.')[0])<18) throw Error('需要 Node.js 18 或更新版本。');
   const sourceTrigger=path.join(root,'examples/codex-memory-plugin/scripts/company-usage/trigger.mjs');
   const sourceApi=await import(pathToFileURL(sourceTrigger).href);
-  const context=await sourceApi.context();
+  const context=confirmUsage ? await sourceApi.context() : null;
+  const settingsModule='scripts/work-memory-settings.mjs';
+  let memoryProfile;
+  if (confirmWorkMemory) {
+    const sourceSettings=await import(pathToFileURL(path.join(root,'examples','codex-memory-plugin',settingsModule)).href);
+    memoryProfile=await sourceSettings.workMemoryProfile();
+  }
   const before=read(configFile);
   keyState(before,teamId); keyState(before,officialId);
-  const backupDir=path.join(os.homedir(),'.openviking','codex-usage','setup-backups');
+  const backupDir=path.join(os.homedir(),'.openviking',confirmUsage ? 'codex-usage' : 'work-memory','setup-backups');
   fs.mkdirSync(backupDir,{recursive:true,mode:0o700});
   const backup=path.join(backupDir,new Date().toISOString().replace(/[:.]/g,'-')+'-'+randomUUID()+'.toml');
   fs.writeFileSync(backup,before,{mode:0o600,flag:'wx'});
-  let expected=before, enrolled=null, enrolledBytes=null, priorEnrollment=read(context.enrollment);
+  let expected=before, enrolled=null, enrolledBytes=null, priorEnrollment=context ? read(context.enrollment) : null;
   let changed=false;
   try {
     if (read(configFile)!==expected) throw Error('配置同时发生变化，请稍后重试。');
@@ -117,21 +126,34 @@ async function main() {
     }
     const markets=JSON.parse(codex(['marketplace','list','--json'])).marketplaces || [];
     if (!markets.some(m=>m.name==='venki-team')) throw Error('尚未添加公司插件源。请提供已发布的 --source 地址。');
-    let installed;
-    changed=true;
-    try { installed=JSON.parse(codex(['add',teamId,'--json'])); }
-    finally { expected=read(configFile); }
-    if (installed.pluginId!==teamId || !installed.installedPath) throw Error('安装结果与团队插件不匹配。');
-    const installedRoot=fs.realpathSync(installed.installedPath);
-    const cache=fs.realpathSync(path.join(codexRoot,'plugins','cache','venki-team','openviking-memory'));
-    if (!installedRoot.startsWith(cache+path.sep)) throw Error('团队插件安装位置异常。');
+    function installTeam() {
+      changed=true;
+      let installed;
+      try { installed=JSON.parse(codex(['add',teamId,'--json'])); }
+      finally { expected=read(configFile); }
+      if (installed.pluginId!==teamId || !installed.installedPath) throw Error('安装结果与团队插件不匹配。');
+      const installedRoot=fs.realpathSync(installed.installedPath);
+      const cache=fs.realpathSync(path.join(codexRoot,'plugins','cache','venki-team','openviking-memory'));
+      if (!installedRoot.startsWith(cache+path.sep)) throw Error('团队插件安装位置异常。');
+      return {installed,installedRoot};
+    }
+    let {installed,installedRoot}=installTeam();
+    if (confirmWorkMemory && !fs.existsSync(path.join(installedRoot,settingsModule))) {
+      // Adding an existing Git marketplace reuses its cached snapshot. Pull before enabling this new feature.
+      try { codex(['marketplace','upgrade','venki-team']); }
+      finally { expected=read(configFile); }
+      ({installed,installedRoot}=installTeam());
+      if (!fs.existsSync(path.join(installedRoot,settingsModule))) throw Error('公司插件源当前版本尚不支持工作记忆。');
+    }
     const trigger=await import(pathToFileURL(path.join(installedRoot,'scripts/company-usage/trigger.mjs')).href);
-    const installedContext=await trigger.context();
-    if (installedContext.profile!==context.profile) throw Error('切换期间个人 OpenViking 身份发生变化。');
-    if (read(configFile)!==expected) throw Error('配置同时发生变化，请稍后重试。');
-    enrolled=await trigger.command('--enroll');
-    enrolledBytes=read(context.enrollment);
-    if (!enrolled?.enrolled) throw Error('用量登记未成功。');
+    if (confirmUsage) {
+      const installedContext=await trigger.context();
+      if (installedContext.profile!==context.profile) throw Error('切换期间个人 OpenViking 身份发生变化。');
+      if (read(configFile)!==expected) throw Error('配置同时发生变化，请稍后重试。');
+      enrolled=await trigger.command('--enroll');
+      enrolledBytes=read(context.enrollment);
+      if (!enrolled?.enrolled) throw Error('用量登记未成功。');
+    }
     const next=setEnabled(setEnabled(expected,teamId,true),officialId,false);
     if (read(configFile)!==expected) throw Error('配置同时发生变化，请稍后重试。');
     atomicWrite(configFile,next); expected=next;
@@ -139,9 +161,18 @@ async function main() {
     if (!rows.some(r=>r.pluginId===teamId && r.installed && r.enabled) ||
         rows.some(r=>r.pluginId===officialId && r.enabled))
       throw Error('当前工作区的配置覆盖了插件切换，请由 Codex 检查项目级插件设置。');
-    const status=await trigger.command('--probe');
-    console.log(JSON.stringify({installed:true,plugin:teamId,version:installed.version,enrolled:status.enrolled,
-      officialEnabled:false,lastRun:status.lastRun,configBackup:backup},null,2));
+    const summary={installed:true,plugin:teamId,version:installed.version,officialEnabled:false,configBackup:backup};
+    if (confirmUsage) {
+      const status=await trigger.command('--probe');
+      summary.enrolled=status.enrolled;
+      summary.lastRun=status.lastRun;
+    }
+    if (confirmWorkMemory) {
+      const settingsPath=path.join(installedRoot,settingsModule);
+      const settings=await import(pathToFileURL(settingsPath).href);
+      summary.workMemory=await settings.enableWorkMemory(process.cwd(),memoryProfile);
+    }
+    console.log(JSON.stringify(summary,null,2));
     console.log('团队插件已启用。请完全退出并重开 Codex，按提示审阅并允许团队 hooks，然后完成一次日常会话。');
   } catch(error) {
     let rollbackError;

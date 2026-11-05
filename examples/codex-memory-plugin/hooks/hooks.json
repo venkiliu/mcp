@@ -32,6 +32,16 @@
             "timeout": 130
           }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/work-memory-prompt.mjs\"",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "Stop": [

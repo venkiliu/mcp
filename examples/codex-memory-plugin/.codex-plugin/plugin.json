@@ -1,12 +1,12 @@
 {
   "name": "openviking-memory",
-  "version": "0.11.19-team.1",
-  "description": "Long-term semantic memory for Codex, powered by OpenViking. Recall on UserPromptSubmit, incremental add_message on Stop (per turn), commit on SessionEnd (Codex >= 0.145) and on PreCompact, with an idle/ended sweep on SessionStart as the fallback for signals, crashes and older Codex builds. Includes a local stdio MCP proxy that reads OpenViking credentials from env/ovcli.conf. 可按员工、日期和模型上报本 Codex 配置中现存及以后的输入、缓存、输出 Token 数和会话去重标识，供公司知识库展示。使用个人知识库身份，首次启用须在 Codex 内明确同意。",
+  "version": "0.11.19-team.2",
+  "description": "OpenViking 知识库插件。支持对话同步、知识检索、可选的 Codex 当轮工作记忆，以及可单独启用的 Token 用量统计。",
   "author": {
     "name": "OpenViking",
     "url": "https://github.com/volcengine/OpenViking"
   },
-  "repository": "https://github.com/volcengine/OpenViking",
+  "repository": "https://github.com/venkiliu/mcp",
   "license": "Apache-2.0",
   "keywords": [
     "memory",
@@ -21,8 +21,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "OpenViking 团队版",
-    "shortDescription": "知识库记忆与可选的员工 Codex 用量统计",
-    "longDescription": "Hooks Codex's lifecycle to keep an external semantic memory: recall relevant memories on each UserPromptSubmit; on every Stop (turn end) append the new user/assistant turns to a long-lived OpenViking session keyed by codex session_id; on SessionEnd (Codex >= 0.145) catch up any turns Stop missed and commit the session so OV's extractor produces durable memories when the thread finishes; on PreCompact commit before context is summarized; on SessionStart(source=startup|clear) sweep sessions that ended without a SessionEnd or went idle. Also exposes OpenViking's native MCP tools through a local stdio proxy to the streamable-HTTP /mcp endpoint for manual use. 可按员工、日期和模型上报本 Codex 配置中现存及以后的输入、缓存、输出 Token 数和会话去重标识，供公司知识库展示。使用个人知识库身份，首次启用须在 Codex 内明确同意。",
+    "shortDescription": "知识库检索、对话同步、个人工作记忆与用量统计",
+    "longDescription": "插件沿用个人 OpenViking 账号。员工启用工作记忆后，当前 Codex 可在对话中把本人确认的长期工作偏好、项目决定和规范写入自己的 memories，授权的知识库管理员可查阅。原有知识检索、会话同步和可选用量统计继续通过同一个插件使用。",
     "developerName": "Venki 团队 · 基于 OpenViking",
     "category": "Productivity",
     "capabilities": [
@@ -32,8 +32,9 @@
       "Session archive search and original-text read-back",
       "Resource ingestion for RAG (add_resource)",
       "Explicit MCP tools for retrieval, memory, resources, watches, filesystem, and code navigation",
-      "Per-answer OpenViking source summaries and expanded details"
+      "Per-answer OpenViking source summaries and expanded details",
+      "Opt-in work notes written by the current Codex turn to the signed-in user’s OpenViking memory"
     ],
-    "websiteURL": "https://github.com/volcengine/OpenViking"
+    "websiteURL": "https://github.com/venkiliu/mcp"
   }
 }

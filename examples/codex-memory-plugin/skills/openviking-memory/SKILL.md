@@ -31,9 +31,10 @@ such as `mcp__openviking__find` or `openviking_find`; they are the same tools.
 3. **Data in** — when durable information appears, write it (below). Be
    deliberate: retrieval quality degrades as the store fills with noise.
 4. **End** — the plugin captures and commits the conversation automatically,
-   and OpenViking extracts long-term memories from it in the background. This
-   is why you rarely need `remember`: anything discussed at length will be
-   extracted anyway.
+   and the server applies its configured extraction policy. In this company deployment,
+   use the bundled `ov-work-memory` skill when the trusted prompt hook indicates
+   that same-turn work memory is enabled. The current Codex turn selects a minimal
+   work note and uses the plugin’s guarded note tools.
 
 ## Choosing a retrieval tool
 
@@ -55,9 +56,10 @@ filesystem tools.
 
 ## Writing
 
-- `remember` — only for what the user explicitly asks to keep, or clearly
-  durable facts, preferences, and decisions needed before automatic extraction
-  would catch them. Do not mirror routine conversation into it.
+- For company work notes, follow `ov-work-memory` when enabled. If someone
+  requests durable work notes with this feature off, explain how to enable it.
+  `remember` submits a session for server extraction; use it only on installations
+  with server extraction enabled. Never report a queued extraction as a saved note.
 - `add_resource` — imports files, directories, URLs, or Git repos as durable
   knowledge. Processing is asynchronous; report that ingestion started instead
   of blocking on completion.

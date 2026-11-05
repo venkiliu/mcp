@@ -12,6 +12,7 @@ import { realpathSync } from "node:fs";
 import { resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "../scripts/config.mjs";
+import { createWorkMemoryTools } from "../scripts/work-memory-notes.mjs";
 import { createLogger } from "../scripts/debug-log.mjs";
 import { toMcpProxyConfig } from "../scripts/shared/mcp-proxy-config.mjs";
 import { createOpenVikingMcpProxy } from "../scripts/shared/mcp-proxy-core.mjs";
@@ -33,5 +34,6 @@ if (isDirectRun()) {
   createOpenVikingMcpProxy({
     readConfig: readProxyConfig,
     loggerFactory: createLogger,
+    localToolProvider: createWorkMemoryTools(),
   }).start();
 }

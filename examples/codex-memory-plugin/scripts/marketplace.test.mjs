@@ -2,7 +2,7 @@
  * Contract test for the repo-root Codex marketplace catalog
  * (.agents/plugins/marketplace.json) and its coherence with this plugin.
  *
- * These checks guard the `codex plugin marketplace add <owner>/OpenViking`
+ * These checks guard the `codex plugin marketplace add https://github.com/venkiliu/mcp.git`
  * install path: the catalog must exist, be valid JSON, point at this plugin,
  * and the plugin's manifest / hooks / mcp wiring must stay consistent with the
  * marketplace-install assumptions (native ${PLUGIN_ROOT}, stdio MCP proxy,
@@ -11,6 +11,8 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { createWorkMemoryTools } from "./work-memory-notes.mjs";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, mkdtempSync, mkdirSync, readdirSync, utimesSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -26,8 +28,6 @@ const pluginDir = resolve(scriptsDir, "..");
 const repoRoot = resolve(scriptsDir, "..", "..", "..");
 const catalogPath = join(repoRoot, ".agents", "plugins", "marketplace.json");
 const manifestPath = join(pluginDir, ".codex-plugin", "plugin.json");
-const canonicalExperienceSkillPath = join(repoRoot, "examples", "skills", "ov-experience-memory", "SKILL.md");
-const packagedExperienceSkillPath = join(pluginDir, "skills", "ov-experience-memory", "SKILL.md");
 
 const PLUGIN_NAME = "openviking-memory";
 const LEGACY_TOOL_NAMES = ["openviking_recall", "openviking_store", "openviking_forget", "openviking_health"];
@@ -251,19 +251,12 @@ test("catalog source is local to the marketplace snapshot", () => {
   }
 });
 
-test("examples/.agents catalog backs the directory-marketplace install path", () => {
-  // The shared installer registers examples/ itself as a local marketplace in
-  // dev/archive mode, so a Codex catalog must exist there too and stay
-  // consistent with the repo-root one (same marketplace name -> same plugin id
-  // openviking-memory@openviking across all install modes).
-  const localCatalogPath = join(repoRoot, "examples", ".agents", "plugins", "marketplace.json");
-  assert.ok(existsSync(localCatalogPath), `missing catalog at ${localCatalogPath}`);
-  const localCatalog = readJson(localCatalogPath);
-  const rootCatalog = readJson(catalogPath);
-  assert.equal(localCatalog.name, rootCatalog.name, "examples/.agents catalog must keep the same marketplace name as the repo root");
-  const entry = localCatalog.plugins.find((p) => p && p.name === PLUGIN_NAME);
-  assert.ok(entry, `examples/.agents catalog must contain "${PLUGIN_NAME}"`);
-  assert.equal(resolve(repoRoot, "examples", sourcePath(entry.source)), pluginDir, "examples/.agents catalog source must resolve to this plugin directory");
+test("the company root catalog installs only the team plugin", () => {
+  const catalog = readJson(catalogPath);
+  assert.equal(catalog.name, "venki-team");
+  assert.deepEqual(catalog.plugins.map(plugin => plugin.name), [PLUGIN_NAME]);
+  assert.equal(existsSync(join(repoRoot, "examples", ".agents", "plugins", "marketplace.json")), false);
+  assert.equal(resolve(repoRoot, sourcePath(catalog.plugins[0].source)), pluginDir);
 });
 
 test("required plugin files are present", () => {
@@ -283,21 +276,17 @@ test("required plugin files are present", () => {
   }
 });
 
-test("marketplace package ships the canonical Experience skill", () => {
-  assert.equal(
-    readFileSync(packagedExperienceSkillPath, "utf-8"),
-    readFileSync(canonicalExperienceSkillPath, "utf-8"),
-    "packaged Experience skill must stay byte-identical to examples/skills/ov-experience-memory",
-  );
-});
-
-test("marketplace package ships the canonical OpenViking skills skill", () => {
-  assert.equal(
-    readFileSync(join(pluginDir, "skills", "openviking-skills", "SKILL.md"), "utf-8"),
-    readFileSync(join(repoRoot, "examples", "skills", "openviking-skills", "SKILL.md"), "utf-8"),
-    "packaged skill must stay byte-identical to examples/skills/openviking-skills",
-  );
-});
+// These unmodified skills are checked against the canonical files in the pinned upstream tree
+// 34cd941cd37fe7ffc9112f936db99e18fb58b9a6 under examples/skills.
+for (const [skill, expected] of Object.entries({
+    "ov-experience-memory": "9490d86db2fcfa572e49bc0105f5916c1c4344f3691f74a0bc245a53045de7d8",
+    "openviking-skills": "83d4d71573b9a6fad48443d457421958c5109b0eb024a7a64efb5dcca1634890",
+})) {
+  test(`marketplace package ships the pinned upstream ${skill} skill`, () => {
+    const contents = readFileSync(join(pluginDir, "skills", skill, "SKILL.md"));
+    assert.equal(createHash("sha256").update(contents).digest("hex"), expected);
+  });
+}
 
 test("plugin.json does not describe legacy MCP tool names", () => {
   const manifest = readJson(manifestPath);
@@ -369,12 +358,23 @@ test(".mcp.json forwards every env var that changes what the MCP proxy sends", (
   }
 });
 
-test("Codex MCP entrypoint forwards only native OpenViking tools", () => {
+test("Codex MCP entrypoint combines native tools with consent-gated work notes", async () => {
   const entrypoint = readFileSync(join(pluginDir, "servers", "mcp-proxy.mjs"), "utf-8");
   assert.doesNotMatch(entrypoint, /createExperienceToolProvider/);
-  assert.doesNotMatch(entrypoint, /localToolProvider/);
+  assert.match(entrypoint, /localToolProvider:\s*createWorkMemoryTools\(\)/);
   assert.match(entrypoint, /toMcpProxyConfig\(/);
   assert.doesNotMatch(entrypoint, /resolveEffectivePeerId|process\.cwd\(\)/);
+
+  let requests = 0;
+  const local = createWorkMemoryTools({ isEnabled: () => false, fetchImpl: () => { requests++; } });
+  const names = local.listTools().map(tool => tool.name).sort();
+  assert.deepEqual(names, ["work_memory_get", "work_memory_save"]);
+  for (const name of names) {
+    const result = await local.callTool({name, arguments: {}}, {config: {}});
+    assert.equal(result.isError, true);
+    assert.match(result.content[0].text, /未开启/);
+  }
+  assert.equal(requests, 0);
 });
 
 test("plugin.json declares the skills directory so Codex loads bundled skills", () => {

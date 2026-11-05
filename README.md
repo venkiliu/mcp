@@ -1,17 +1,25 @@
-# OpenViking 团队插件
+# OpenViking 知识库插件
 
-本仓库提供 Codex 插件源 `venki-team`，插件名为「OpenViking 团队版」，使用 Node.js 18 及以上。
+员工用已有的个人 OpenViking 账号连接公司知识库。启用工作记忆后，当前 Codex 可以把对话中确认的长期工作偏好、项目决定和规范整理成简短条目，存到本人知识库的 `memories`。本人和获授权的知识库管理员可以查看。GitHub 只分发插件代码，安装和更新可匿名完成。
 
-员工可以直接从这个公开仓库安装和更新插件，无需登录 GitHub。已配置个人 OpenViking 连接的员工，在 Codex 中粘贴下面这句话即可。
+## 在 Codex 里启用
 
-> 请按 https://github.com/venkiliu/mcp.git 的团队接入说明，把我的 OpenViking 切换到团队版。我同意按个人知识库账号、日期和模型将此 Codex 配置现有和今后的输入、缓存、输出 Token 数及会话去重标识上报到公司知识库，供管理员查看。
+已配置好个人知识库连接的员工，可以把下面这句话粘贴到 Codex。首次安装和从旧版升级都可以用。
 
-接手的 Codex 应读取本说明，确认现有个人 OpenViking 配置和当前运行环境，检出管理员提供的 Git 仓库，在仓库根目录运行 `node scripts/team-setup.mjs --confirm-usage --source https://github.com/venkiliu/mcp.git`。脚本沿用本人的知识库连接，备份 Codex 配置，安装团队版并登记用量统计，成功后停用官方版，检查实际插件状态。员工按 Codex 实际提示允许团队 hooks，完全退出并重开 Codex 后完成一次日常会话。
+> 请按 https://github.com/venkiliu/mcp 的说明安装或更新公司 OpenViking 插件，并启用工作记忆。我同意由当前 Codex 把我在今后对话中确认的长期工作偏好、项目决定和工作规范存到本人的公司知识库，供本人和获授权的管理员查阅。
 
-若当前 Codex 已登记 `venki-team` 插件源，可以省略 `--source`。这个参数只接受 Git URL。配置切换失败会恢复原有两个插件开关并说明原因，其他程序同时修改的配置会保留。若提示残留锁，接手的 Codex 应确认锁内 PID 已退出、检查两个插件当前状态，删除指明的锁文件再重试。
+接手的 Codex 使用当前系统用户及当前 Codex 配置，确认已安装 Node.js 18+，检出本仓库的最新 `main` 后运行：
 
-管理员发布新版本后，员工可以在 Codex 中说「帮我更新公司的 OpenViking 团队插件」。对应命令为 `codex plugin marketplace upgrade venki-team`，随后重新启动 Codex 加载新版，并按实际提示审阅 hooks。
+```sh
+node scripts/team-setup.mjs --confirm-work-memory --source https://github.com/venkiliu/mcp.git
+```
 
-安装后可对 Codex 说「查看团队 Codex 用量上报状态」或「停止团队 Codex 用量统计」。统计报告包含上面列出的字段，管理员可在知识库首页查看。查询状态中的 `lastRun: null` 表示尚未观察到真实 hook 成功上报。
+脚本会检查已有个人身份并备份插件配置。新版本安装完成后，按 Codex 的提示审阅插件权限，重开 Codex，在新对话中使用。例如，对它说“以后我的工作交接表固定列出负责人和截止日期”。随后可以在知识库文件系统查看自己的 `memories`，也可以在新对话中问“我的交接表需要哪些字段？” 已保存的内容可以在后续对话中更正。同一条信息无需反复保存。是否值得记录由当前 Codex 判断，每轮聊天不一定产生条目。
 
-当前版本基于 OpenViking 0.11.19，具体改动与上游许可证保存在插件目录。仓库不包含员工凭据。
+随时可以在 Codex 里说“查看我的 OpenViking 工作记忆开关”或“停止自动保存工作记忆”。停用后，已保存的条目仍可查阅。员工各自在自己的 Codex 配置里启用；服务器沿用原有知识库和向量检索。
+
+## 用量统计与后续更新
+
+Codex Token 用量统计是另一个独立选项。如果也需要启用，员工可另外说明“我同意把此 Codex 配置已有和今后的输入、缓存、输出 Token 数及会话去重标识，按个人知识库账号、日期和模型上报公司知识库，供管理员查看”。只授权工作记忆时用 `--confirm-work-memory`；只授权用量统计时用 `--confirm-usage`；员工选择两项时才同时传入这两个参数。
+
+以后对 Codex 说“帮我更新公司 OpenViking 插件”即可。对应的更新命令为 `codex plugin marketplace upgrade venki-team`。工作记忆和用量统计分别保存启用状态。插件在市场中的名称为“OpenViking 团队版”，版本基于上游 OpenViking Memory 0.11.19。
