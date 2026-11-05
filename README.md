@@ -2,7 +2,7 @@
 
 本仓库提供 Codex 插件源 `venki-team`，插件名为「OpenViking 团队版」，使用 Node.js 18 及以上。
 
-员工需要有公司私有仓库 `venkiliu/mcp` 的读取权限，并能在本机用本人的 GitHub 身份访问它。已配置个人 OpenViking 连接的员工，可以在 Codex 中粘贴下面这句话。
+员工可以直接从这个公开仓库安装和更新插件，无需登录 GitHub。已配置个人 OpenViking 连接的员工，在 Codex 中粘贴下面这句话即可。
 
 > 请按 https://github.com/venkiliu/mcp.git 的团队接入说明，把我的 OpenViking 切换到团队版。我同意按个人知识库账号、日期和模型将此 Codex 配置现有和今后的输入、缓存、输出 Token 数及会话去重标识上报到公司知识库，供管理员查看。
 
