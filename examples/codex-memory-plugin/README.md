@@ -1,3 +1,7 @@
+# Venki 团队发行版
+
+员工接入与升级请使用[团队说明](../../README.md)，其中的配置脚本会处理官方版切换。下方保留上游原始文档供功能参考，安装与更新以团队说明为准。
+
 # OpenViking Memory Plugin for Codex and TraeCode CLI 2.0
 
 > **Working memory is now opt-in.** Update installed plugins separately from the OV server, then restart the host. Existing explicit settings still take precedence. See the [default-off upgrade guide](../../docs/en/guides/working-memory-default-off.md) for native history, re-enabling WM, and old-conversation handoffs.
